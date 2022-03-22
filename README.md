@@ -9,7 +9,7 @@ Our web-based tool, based on R's Shiny App, helps visualize various characterist
 attribute groupings.
 
 Users can upload the dataset they wish to explore using the 'Browse' button. This dataset should include the specific columns 'Series' (all the time series), 
-'Date', 'cat.col' (column which categorizes the series) names, and 'latitude'and 'longitude' (the area of the colelcted series). 
+'Date', 'cat.col' (column which categorizes the series) names, and 'latitude' and 'longitude' (the area of the colelcted series). 
 It also needs to include other columns as splitting variables (domain-relevant attributes) 
 with desired names. 
 The frequency option helps the user choose the time series frequency that is currently 'Weekly' (for daily time series) or 'Monthly' 
