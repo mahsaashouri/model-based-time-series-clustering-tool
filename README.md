@@ -22,6 +22,6 @@ population (numeric), metro (2 categories), and airport (2 categories).
 For the purpose of comparing two sets of parameter settings, our tool creates two sets of results, presented in two tabs.
 The app screenshot using MOB depth = 3 and 2, Prune option = 'AIC' with all the above domain-relevant attributes as splitting variables:
 
-![alt text](<https://github.com/mahsaashouri/Interactive-tool-for-time-series-visualization/blob/main/screenshot.png>)
+![alt text](<https://github.com/mahsaashouri/model-based-time-series-clustering-tool/blob/main/screenshot.png>)
 
-![alt text](<https://github.com/mahsaashouri/Interactive-tool-for-time-series-visualization/blob/main/screenshot2.png>)
+![alt text](<https://github.com/mahsaashouri/model-based-time-series-clustering-tool/blob/main/screenshot2.png>)
