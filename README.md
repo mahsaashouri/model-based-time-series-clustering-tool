@@ -2,7 +2,6 @@
 
 We propose a web-based interactive tool, called 'model-based time series clustering tool', 
 for visualizing the results of clustering large collections of time series with cross-sectional domain-relevant attributes. 
-Such data often arise in Internet-of-Things (IoT) and sensor-based applications, where each time series is coupled with cross-sectional information.
 While the clustering algorithm in the background is automated, our visualization tool allows users to modify various parameters that lead to different cluster 
 definitions and numbers of clusters. We illustrate the tool by applying it to an air quality dataset (PM2.5 index) collected in different monitoring stations in Taiwan.
 Our web-based tool, based on R's Shiny App, helps visualize various characteristics of time series, such as temporal patterns and missing values, as well as clustering 
