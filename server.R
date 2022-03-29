@@ -14,9 +14,9 @@ library(data.table)
 library(tidyverse)
 library(circlize)
 library(seriation)
-#library(devtools)
+library(devtools)
 #install.packages("http://cran.rstudio.com/src/contrib/Archive/rjson/rjson_0.2.13.tar.gz", repos=NULL, type="source")
-#install_github("jokergoo/ComplexHeatmap")
+install_github("jokergoo/ComplexHeatmap")
 library(ComplexHeatmap)
 
 # Define server logic 
@@ -160,7 +160,7 @@ fit1 <- reactive({
      col_fun(seq(-3, 3))
      
      ## To option for reordering 1- seriation 2- hclust
-     o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "TSP")
+     o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
     # heatmap
     frequency <- as.integer(input$Frequency)
     if(frequency == 7){
@@ -311,7 +311,7 @@ fit1 <- reactive({
      col_fun(seq(-3, 3))
      
      ## To option for reordering 1- seriation 2- hclust
-     o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "TSP")
+     o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
      frequency <- as.integer(input$Frequency)
      if(frequency == 7){
        Weekday = c(as.character(weekdays(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])))))
@@ -413,10 +413,11 @@ fit1 <- reactive({
     split.pmt <- split(na.omit(df_change()), predict(fit1(), type = "node"))
     split.pmt <- rev(split.pmt)
     new.split.pmt <- list()
+    name1 <- c(length(split.pmt):1)
     for(i in 1: length(split.pmt)){
       unique.name <- unique(split.pmt[[i]]$cat.col)
       new.split.pmt[[i]] <- df_change()[df_change()$cat.col %in% unique.name,]
-      new.split.pmt[[i]]$cluster <-  paste0 ("Cluster_", i, collapse = ".")
+      new.split.pmt[[i]]$cluster <-  paste0 ("Cluster_", name1[i], collapse = ".")
     }
     pmt2 <- do.call("rbind", new.split.pmt)
     ggplot(data = pmt2, aes( x = trend, y = Series.std, group = cat.col)) +
@@ -443,8 +444,9 @@ fit1 <- reactive({
 
     }
     id <- c()
+    name1 <- c(nrow(coef01):1)
     for(i in 1: nrow(coef01)){
-      id[i] <-  paste0 ("Cluster_", i, collapse = ".")
+      id[i] <-  paste0 ("Cluster_", name1[i], collapse = ".")
     }
     coef <- cbind.data.frame(coef01, id)
     frequency <- as.integer(input$Frequency)
@@ -551,7 +553,7 @@ fit1 <- reactive({
     col_fun(seq(-3, 3))
     
     ## To option for reordering 1- seriation 2- hclust
-    o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "TSP")
+    o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
     # heatmap
     frequency <- as.integer(input$Frequency)
     if(frequency == 7){
@@ -705,7 +707,7 @@ fit1 <- reactive({
     col_fun(seq(-3, 3))
     
     ## To option for reordering 1- seriation 2- hclust
-    o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "TSP")
+    o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
     frequency <- as.integer(input$Frequency) 
     if(frequency==7){
       Weekday = c(as.character(weekdays(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])))))
@@ -806,10 +808,11 @@ fit1 <- reactive({
     split.pmt <- split(na.omit(df_change()), predict(fit2(), type = "node"))
     split.pmt <- rev(split.pmt)
     new.split.pmt <- list()
+    name1 <- c(length(split.pmt):1)
     for(i in 1: length(split.pmt)){
       unique.name <- unique(split.pmt[[i]]$cat.col)
       new.split.pmt[[i]] <- df_change()[df_change()$cat.col %in% unique.name,]
-      new.split.pmt[[i]]$cluster <-  paste0 ("Cluster_", i, collapse = ".")
+      new.split.pmt[[i]]$cluster <-  paste0 ("Cluster_", name1[i], collapse = ".")
     }
     pmt2 <- do.call("rbind", new.split.pmt)
     ggplot(data = pmt2, aes( x = trend, y = Series.std, group = cat.col)) +
@@ -836,8 +839,9 @@ fit1 <- reactive({
 
     }
     id <- c()
+    name1 <- c(nrow(coef01):1)
     for(i in 1: nrow(coef01)){
-      id[i] <-  paste0 ("Cluster_", i, collapse = ".")
+      id[i] <-  paste0 ("Cluster_", name1[i], collapse = ".")
     }
     coef <- cbind.data.frame(coef01, id)
     frequency <- as.integer(input$Frequency)
