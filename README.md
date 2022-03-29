@@ -27,4 +27,4 @@ The app screenshot using MOB depth = 3 and 2, Prune option = 'AIC' with all the 
 
 
 Binder 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mahsaashouri/model-based-time-series-clustering-tool/edit/main?urlpath=shiny)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mahsaashouri/model-based-time-series-clustering-tool/main?urlpath=shiny)
