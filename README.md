@@ -15,8 +15,8 @@ The frequency option helps the user choose the time series frequency that is cur
 (for monthly time series) is available for our tool.  
 
 Our example dataset is monthly ```PM2.5-Taiwan.csv```, which shows the daily Taiwan PM2.5 index in different regions and counties from Jan 2006 to Nov 2019. 
-Domain-relevant attributes applied to this dataset include geographical division, region (5 categories), county (22 categories), administrative (3 categories), 
-population (numeric), metro (2 categories), and airport (2 categories). 
+Domain-relevant attributes applied to this dataset include TEPA zones (Taiwan air quality zones) (10 categories), station type (6 categories), metro (2 categories), population (%22 categories -
+(numeric), and  administrative level (3 categories). 
 
 For the purpose of comparing two sets of parameter settings, our tool creates two sets of results, presented in two tabs.
 The app screenshot using MOB depth = 3 and 2, Prune option = 'AIC' with all the above domain-relevant attributes as splitting variables:
@@ -24,6 +24,7 @@ The app screenshot using MOB depth = 3 and 2, Prune option = 'AIC' with all the 
 ![alt text](<https://github.com/mahsaashouri/model-based-time-series-clustering-tool/blob/main/screenshot.png>)
 
 ![alt text](<https://github.com/mahsaashouri/model-based-time-series-clustering-tool/blob/main/screenshot2.png>)
+
 
 Binder 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mahsaashouri/model-based-time-series-clustering-tool/main?urlpath=shiny)
