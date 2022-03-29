@@ -1,4 +1,4 @@
-# model-based time series clustering tool
+# Model-based time series clustering tool
 
 We propose a web-based interactive tool, called 'model-based time series clustering tool', 
 for visualizing the results of clustering large collections of time series with cross-sectional domain-relevant attributes. 
