@@ -16,9 +16,9 @@ library(circlize)
 library(seriation)
 library(devtools)
 #install.packages("http://cran.rstudio.com/src/contrib/Archive/rjson/rjson_0.2.13.tar.gz", repos=NULL, type="source")
-install_github("jokergoo/ComplexHeatmap")
+devtools::install_github("jokergoo/ComplexHeatmap")
 library(ComplexHeatmap)
-
+options(shiny.maxRequestSize=30*1024^2) 
 # Define server logic 
 shinyServer(function(input, output, session) {
   df_upload <- reactive({
@@ -37,7 +37,7 @@ shinyServer(function(input, output, session) {
     data_set1 <- data_set[,!colnames(data_set) %in% c('Series','cat.col',	'Date', 'latitude', 'longitude')]
   opts <- names(data_set1)
 
-  # Update your checkboxGroupInput
+  # Update the checkboxGroupInput
   updateCheckboxGroupInput(
     session, "SplitVariables1", choices = opts, selected = opts)
   })
@@ -46,7 +46,7 @@ shinyServer(function(input, output, session) {
     data_set <- df_upload()
     data_set1 <- data_set[,!colnames(data_set) %in% c('Series','cat.col',	'Date', 'latitude', 'longitude')]
     opts <- names(data_set1) 
-    # Update your checkboxGroupInput
+    # Update the checkboxGroupInput
     updateCheckboxGroupInput(
       session, "SplitVariables2", choices = opts, selected = opts)
   })
@@ -78,10 +78,7 @@ shinyServer(function(input, output, session) {
     dattr <- dattr %>%
       plyr::ddply("cat.col", transform, Series.std = scale(Series)) %>%
       as.data.frame()
-    ## category columns
-    # colsfac <- c('County', 'Region', 'Administrative', 'Metro')
-    # dattr <- dattr %>% mutate_at(colsfac, list(~factor(.)))
-    
+
     ## lags added
     category_sort <- sort(unique(dattr$cat.col))
     lag_making <- list()
@@ -93,8 +90,9 @@ shinyServer(function(input, output, session) {
     dattr <- cbind.data.frame(dattr, lag_making)
     return(dattr)
   }) 
-   
+#####################################   
 ## First set of results (first tab)
+####################################
 fit1 <- reactive({
   if (is.null(df_change()))
     return(NULL)
@@ -111,13 +109,20 @@ fit1 <- reactive({
     form <- paste0(form, var1[length(var1)])
     formula <- as.formula(form)
 
+    ## category columns
+    df1 <- df_change()
+    colsfac <- df1 %>% 
+      select(where(is.character)) %>%
+      select(one_of(var))
+    df1 <- df1 %>% mutate_at(c(colnames(colsfac)), list(~factor(.)))
+    
     ### defining fit function
     linear <- function(y, x, start = NULL, weights = NULL, offset = NULL, ...) {
         glm(y ~ 0 + x, family = gaussian, start = start, ...)
     }
     depth <- input$Depth1
     ## running MOB tree
-    MOBtree <- mob( formula, data = df_change(), fit = linear,  na.action = na.exclude, control =
+    MOBtree <- mob( formula, data = df1, fit = linear,  na.action = na.exclude, control =
                       mob_control(prune = input$Prune1,  maxdepth = depth, alpha = 0.01))
 
       })
@@ -139,6 +144,8 @@ fit1 <- reactive({
    if (is.null(df_change()))
      return(NULL)
   split.pmt <- split(na.omit(df_change()), predict(fit1(), type = "node"))
+  names(split.pmt) <- c(length(split.pmt): 1)
+  split.pmt <- split.pmt[sort(names(split.pmt))]
      new.split.pmt <- list()
      for(i in 1: length(split.pmt)){
        unique.name <- unique(split.pmt[[i]]$cat.col)
@@ -146,7 +153,7 @@ fit1 <- reactive({
        new.split.pmt[[i]]$cluster <-  i
      }
      new_matrixc <- NULL
-     for(i in length(new.split.pmt):1){
+     for(i in 1:length(new.split.pmt)){
        new_matrix <- as.data.frame(t(matrix(new.split.pmt[[i]]$Series.std, nrow = (values$serieslength), ncol = length(unique(new.split.pmt[[i]]$cat.col)))))
        colnames(new_matrix) <- new.split.pmt[[i]][1:(values$serieslength),]$Date
        new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
@@ -159,7 +166,7 @@ fit1 <- reactive({
      col_fun = colorRamp2(c(-2, 0, 2), c(input$colorlow1, "white", input$colorhigh1))
      col_fun(seq(-3, 3))
      
-     ## To option for reordering 1- seriation 2- hclust
+     ## Two option for reordering 1- seriation 2- hclust
      o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
     # heatmap
     frequency <- as.integer(input$Frequency)
@@ -176,6 +183,11 @@ fit1 <- reactive({
                                      col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
                                                           'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
                                                           'September'="#D9D9D9", 'October'="#BC80BD", 'November'="#CCEBC5", 'December'="#FFED6F" )))
+      Year = c(lubridate::year(lubridate::ymd(colnames(new_matrixc[,-c(1:4)]))))
+      column_ha3 = HeatmapAnnotation(Year = Year, 
+                                     annotation_legend_param = list(legend_direction = "horizontal", at = c(min(Year), median(Year), max(Year)), 
+                                                                    labels = c(min(Year), median(Year), max(Year))),
+                                     col = list(Year = colorRamp2(c(min(Year), median(Year), max(Year)), c("cornsilk", "blue",  "orange"))))
     }
     if(frequency == 12){
       Month = c(as.character(lubridate::month(lubridate::ym(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
@@ -203,19 +215,36 @@ fit1 <- reactive({
                             annotation_legend_param = list(legend_direction = "horizontal", at = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), 
                                                            labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                             col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
+    if(frequency == 7){
+      heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+                              row_order = get_order(o1), 
+                              name = "Heatmap",  column_dend_reorder = FALSE, 
+                              cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+                              row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+                              bottom_annotation = c(column_ha, column_ha2, column_ha3),
+                              left_annotation = c(row_ha1, row_ha2),
+                              col = col_fun, border = TRUE,
+                              na_col = "gray27", 
+                              heatmap_legend_param = list(
+                                legend_direction = "horizontal"
+                              ))
+    }
+    if(frequency == 12){
+      heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+                              row_order = get_order(o1), 
+                              name = "Heatmap",  column_dend_reorder = FALSE, 
+                              cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+                              row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+                              bottom_annotation = c(column_ha, column_ha2),
+                              left_annotation = c(row_ha1, row_ha2),
+                              col = col_fun, border = TRUE,
+                              na_col = "gray27", 
+                              heatmap_legend_param = list(
+                                legend_direction = "horizontal"
+                              ))
+    }
     
-    heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
-                            row_order = get_order(o1), 
-                            name = "Heatmap",  column_dend_reorder = FALSE, 
-                            cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
-                            row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
-                            bottom_annotation = c(column_ha, column_ha2),
-                            left_annotation = c(row_ha1, row_ha2),
-                            col = col_fun, border = TRUE,
-                            na_col = "gray27", 
-                            heatmap_legend_param = list(
-                              legend_direction = "horizontal"
-                            ))
+   
     
     if ( input$Depth1 ==1 ){
       plot(heatmap.plot)
@@ -246,7 +275,7 @@ fit1 <- reactive({
       grid.newpage()
       pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
       grid.draw(grob)
-      pushViewport(viewport(x = 1.45, y = 0.5, width = 1, height = 0.8))
+      pushViewport(viewport(x = 1.45, y = 0.6, width = 1, height = 0.8))
       print(tree.plot, newpage = FALSE)
     }
   } )
@@ -256,6 +285,8 @@ fit1 <- reactive({
      if (is.null(df_change()))
        return(NULL)
      split.pmt <- split(na.omit(df_change()), predict(fit1(), type = "node"))
+     names(split.pmt) <- c(length(split.pmt): 1)
+     split.pmt <- split.pmt[sort(names(split.pmt))]
      new.split.pmt <- list()
      for(i in 1: length(split.pmt)){
        unique.name <- unique(split.pmt[[i]]$cat.col)
@@ -263,22 +294,65 @@ fit1 <- reactive({
        new.split.pmt[[i]]$cluster <-  i
      }
      frequency <- as.integer(input$Frequency)
-     order.times <- function(df){
-       if(frequency == 7){
-         test <- df %>%
-           mutate('date' = lubridate::ymd(Date))%>%
-           mutate('times' = weekdays(date)) %>%
-           group_by(cat.col) %>%
-           arrange(factor(times, levels = DescTools::day.name))
+     if(frequency == 7){
+     order.times <- order.times <- function(df){
+       test <- df %>%
+         mutate('date' = lubridate::ymd(as.Date(Date)))%>%
+         mutate('times' = months(date)) %>%
+         mutate('times2' = weekdays(date)) %>%
+         group_by(cat.col) %>%
+         arrange(factor(times, levels = month.name)) 
+       test3 <- df %>%
+         mutate('date' = lubridate::ymd(as.Date(Date)))%>%
+         mutate('times' = months(date)) %>%
+         mutate('times2' = weekdays(date)) %>%
+         group_by(cat.col) %>%
+         arrange(factor(times2, levels = DescTools::day.name))
+       test1 <- test %>%
+         arrange(cat.col)
+       
+       split1 <- split(test1, test1$cat.col, drop = TRUE) 
+       
+       for(i in 1:length(split1)){
+         split1[[i]] <- split1[[i]] %>%
+           mutate('times2' = make.unique(times, sep = '_'))
        }
        
-       if(frequency == 12){
+       test11 <- test3 %>%
+         arrange(cat.col)
+       
+       split11 <- split(test11, test1$cat.col, drop = TRUE) 
+       
+       for(i in 1:length(split11)){
+         split11[[i]] <- split11[[i]] %>%
+           mutate('times' = make.unique(times, sep = '_'))
+       }
+       
+       test2 <- do.call(rbind.data.frame, split1)
+       test22 <- do.call(rbind.data.frame, split11)
+       return(list(test22, test2))
+     }
+     ordar.times.pmt <- lapply(new.split.pmt, order.times)
+     
+     new_matrixc <- NULL
+     for(i in 1:length(ordar.times.pmt)){
+       new_matrix <- as.data.frame(t(matrix(ordar.times.pmt[[i]][[1]]$Series.std, nrow = (values$serieslength), ncol = length(unique(ordar.times.pmt[[i]][[1]]$cat.col)))))
+       colnames(new_matrix) <- ordar.times.pmt[[i]][[1]][1:(values$serieslength),]$Date
+       new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
+       new_matrix <- cbind.data.frame('ID' = paste0('C', i, sep = ''), new_matrix)
+       new_matrix <- cbind.data.frame('latitude' = unique(new.split.pmt[[i]]$latitude), new_matrix)
+       new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
+       new_matrixc <- bind_rows(new_matrixc, new_matrix)
+     }
+
+     }
+  if(frequency == 12){
+         order.times <- order.times <- function(df){
          test <- df %>%
            mutate('date' = lubridate::ym(Date))%>%
            mutate('times' = months(date)) %>%
            group_by(cat.col) %>%
            arrange(factor(times, levels = month.name)) 
-       }
        test1 <- test %>%
          arrange(cat.col)
        
@@ -291,29 +365,31 @@ fit1 <- reactive({
        
        test2 <- do.call(rbind.data.frame, split1)
        return(test2)
-     }
+         }
+         ordar.times.pmt <- lapply(new.split.pmt, order.times)
+         
+         new_matrixc <- NULL
+         for(i in 1:length(ordar.times.pmt)){
+           new_matrix <- as.data.frame(t(matrix(ordar.times.pmt[[i]]$Series.std, nrow = (values$serieslength), ncol = length(unique(ordar.times.pmt[[i]]$cat.col)))))
+           colnames(new_matrix) <- ordar.times.pmt[[i]][1:(values$serieslength),]$Date
+           new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
+           new_matrix <- cbind.data.frame('ID' = paste0('C', i, sep = ''), new_matrix)
+           new_matrix <- cbind.data.frame('latitude' = unique(new.split.pmt[[i]]$latitude), new_matrix)
+           new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
+           new_matrixc <- bind_rows(new_matrixc, new_matrix)
+         }
+       }
      
-     ordar.times.pmt <- lapply(new.split.pmt, order.times)
+
      
-     new_matrixc <- NULL
-     for(i in length(ordar.times.pmt): 1){
-       new_matrix <- as.data.frame(t(matrix(ordar.times.pmt[[i]]$Series.std, nrow = (values$serieslength), ncol = length(unique(ordar.times.pmt[[i]]$cat.col)))))
-       colnames(new_matrix) <- ordar.times.pmt[[i]][1:(values$serieslength),]$Date
-       new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
-       new_matrix <- cbind.data.frame('ID' = paste0('C', i, sep = ''), new_matrix)
-       new_matrix <- cbind.data.frame('latitude' = unique(new.split.pmt[[i]]$latitude), new_matrix)
-       new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
-       new_matrixc <- bind_rows(new_matrixc, new_matrix)
-     }
-     
-     #col_fun = colorRamp2(c(-2, 0, 2), c("darkgreen", "white", "darkred"))
      col_fun = colorRamp2(c(-2, 0, 2), c(input$colorlow1, "white", input$colorhigh1))
      col_fun(seq(-3, 3))
      
-     ## To option for reordering 1- seriation 2- hclust
-     o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
+     ## Two option for reordering 1- seriation 2- hclust
+    
      frequency <- as.integer(input$Frequency)
      if(frequency == 7){
+       o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
        Weekday = c(as.character(weekdays(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])))))
        column_ha = HeatmapAnnotation(Weekday = Weekday, 
                                      annotation_legend_param = list(nrow = 2),
@@ -326,8 +402,14 @@ fit1 <- reactive({
                                       col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
                                                            'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
                                                            'September'="#D9D9D9", 'October'="#BC80BD", 'November'="#CCEBC5", 'December'="#FFED6F" )))
+       Year = c(lubridate::year(lubridate::ymd(colnames(new_matrixc[,-c(1:4)]))))
+       column_ha3 = HeatmapAnnotation(Year = Year, 
+                                      annotation_legend_param = list(legend_direction = "horizontal", at = c(min(Year), median(Year), max(Year)), 
+                                                                     labels = c(min(Year), median(Year), max(Year))),
+                                      col = list(Year = colorRamp2(c(min(Year), median(Year), max(Year)), c("cornsilk", "blue",  "orange"))))
      }
      if(frequency == 12){
+       o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
      ## Annotations
      Month = c(as.character(lubridate::month(lubridate::ym(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
      column_ha = HeatmapAnnotation(Month = Month, 
@@ -355,7 +437,21 @@ fit1 <- reactive({
                              annotation_legend_param = list(legend_direction = "horizontal", at = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), 
                                                             labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                              col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
-     
+     if(frequency == 7){
+       heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+               row_order = get_order(o1), 
+               name = "Heatmap",  column_dend_reorder = FALSE, 
+               cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+               row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+               bottom_annotation = c(column_ha, column_ha2, column_ha3),
+               left_annotation = c(row_ha1, row_ha2),
+               col = col_fun, border = TRUE,
+               na_col = "gray27", 
+               heatmap_legend_param = list(
+                 legend_direction = "horizontal"
+               ))
+     }
+     if(frequency == 12){
      heatmap.plot2 <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
                               row_order = get_order(o1), 
                               name = "Heatmap",  column_dend_reorder = FALSE, 
@@ -368,6 +464,7 @@ fit1 <- reactive({
                               heatmap_legend_param = list(
                                 legend_direction = "horizontal"
                               ))
+     }
      
    if ( input$Depth1 ==1 ){
        plot(heatmap.plot2)
@@ -393,17 +490,194 @@ fit1 <- reactive({
            # only inner nodes
            ids = "inner") +
          geom_node_info()
+       if(frequency == 7){
+         # printing both plots
+         grob1 = grid.grabExpr(draw(heatmap.plot2, heatmap_legend_side = "bottom",  annotation_legend_side = "bottom")) 
+         grid.newpage()
+         pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
+         grid.draw(grob1)
+         pushViewport(viewport(x = 1.45, y = 0.6, width = 1, height = 0.8))
+         print(tree.plot, newpage = FALSE)
+       }
+       if(frequency == 12){
        # printing both plots
        grob = grid.grabExpr(draw(heatmap.plot2, heatmap_legend_side = "bottom",  annotation_legend_side = "bottom")) 
-       
        grid.newpage()
        pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
        grid.draw(grob)
-       pushViewport(viewport(x = 1.45, y = 0.5, width = 1, height = 0.8))
+       pushViewport(viewport(x = 1.45, y = 0.6, width = 1, height = 0.8))
        print(tree.plot, newpage = FALSE)
+       }
      }
    })
+   
+   output$titleHeatmap222 = renderText({})
+   ## heatmap by day of week
+   output$MOBTree222 <- renderPlot({
+     if (is.null(df_change()))
+       return(NULL)
+     split.pmt <- split(na.omit(df_change()), predict(fit1(), type = "node"))
+     names(split.pmt) <- c(length(split.pmt): 1)
+     split.pmt <- split.pmt[sort(names(split.pmt))]
+     new.split.pmt <- list()
+     for(i in 1: length(split.pmt)){
+       unique.name <- unique(split.pmt[[i]]$cat.col)
+       new.split.pmt[[i]] <- df_change()[df_change()$cat.col %in% unique.name,]
+       new.split.pmt[[i]]$cluster <-  i
+     }
+     frequency <- as.integer(input$Frequency)
+     if(frequency == 7){
+       order.times <- order.times <- function(df){
+         test <- df %>%
+           mutate('date' = lubridate::ymd(as.Date(Date)))%>%
+           mutate('times' = months(date)) %>%
+           mutate('times2' = weekdays(date)) %>%
+           group_by(cat.col) %>%
+           arrange(factor(times, levels = month.name)) 
+         test3 <- df %>%
+           mutate('date' = lubridate::ymd(as.Date(Date)))%>%
+           mutate('times' = months(date)) %>%
+           mutate('times2' = weekdays(date)) %>%
+           group_by(cat.col) %>%
+           arrange(factor(times2, levels = DescTools::day.name))
+         test1 <- test %>%
+           arrange(cat.col)
+         
+         split1 <- split(test1, test1$cat.col, drop = TRUE) 
+         
+         for(i in 1:length(split1)){
+           split1[[i]] <- split1[[i]] %>%
+             mutate('times2' = make.unique(times, sep = '_'))
+         }
+         
+         test11 <- test3 %>%
+           arrange(cat.col)
+         
+         split11 <- split(test11, test1$cat.col, drop = TRUE) 
+         
+         for(i in 1:length(split11)){
+           split11[[i]] <- split11[[i]] %>%
+             mutate('times' = make.unique(times, sep = '_'))
+         }
+         
+         test2 <- do.call(rbind.data.frame, split1)
+         test22 <- do.call(rbind.data.frame, split11)
+         return(list(test22, test2))
+       }
+       ordar.times.pmt <- lapply(new.split.pmt, order.times)
 
+       new_matrixc <- NULL
+       for(i in 1:length(ordar.times.pmt)){
+         new_matrix <- as.data.frame(t(matrix(ordar.times.pmt[[i]][[2]]$Series.std, nrow = (values$serieslength), ncol = length(unique(ordar.times.pmt[[i]][[2]]$cat.col)))))
+         colnames(new_matrix) <- ordar.times.pmt[[i]][[2]][1:(values$serieslength),]$Date
+         new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
+         new_matrix <- cbind.data.frame('ID' = paste0('C', i, sep = ''), new_matrix)
+         new_matrix <- cbind.data.frame('latitude' = unique(new.split.pmt[[i]]$latitude), new_matrix)
+         new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
+         new_matrixc <- bind_rows(new_matrixc, new_matrix)
+       }
+     }
+     if(frequency == 12){
+      return(NULL)
+     }
+     
+     col_fun = colorRamp2(c(-2, 0, 2), c(input$colorlow1, "white", input$colorhigh1))
+     col_fun(seq(-3, 3))
+     
+     ## Two option for reordering 1- seriation 2- hclust
+     
+     frequency <- as.integer(input$Frequency)
+     if(frequency == 7){
+       o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
+       Weekday = c(as.character(weekdays(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])))))
+       column_ha = HeatmapAnnotation(Weekday = Weekday, 
+                                     annotation_legend_param = list(nrow = 2),
+                                     col = list(Weekday = c("Monday"="#8DD3C7", "Tuesday"="#FFFFB3", 'Wednesday'="#BEBADA" , 'Thursday'="#FB8072",
+                                                            'Friday'="#80B1D3", 'Saturday'="#FDB462", 'Sunday'="#B3DE69" )))
+       
+       Month = c(as.character(lubridate::month(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
+       column_ha2 = HeatmapAnnotation(Month = Month, 
+                                      annotation_legend_param = list(nrow = 2),
+                                      col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
+                                                           'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
+                                                           'September'="#D9D9D9", 'October'="#BC80BD", 'November'="#CCEBC5", 'December'="#FFED6F" )))
+       Year = c(lubridate::year(lubridate::ymd(colnames(new_matrixc[,-c(1:4)]))))
+       column_ha3 = HeatmapAnnotation(Year = Year, 
+                                      annotation_legend_param = list(legend_direction = "horizontal", at = c(min(Year), median(Year), max(Year)), 
+                                                                     labels = c(min(Year), median(Year), max(Year))),
+                                      col = list(Year = colorRamp2(c(min(Year), median(Year), max(Year)), c("cornsilk", "blue",  "orange"))))
+     }
+     if(frequency == 12){
+      return(NULL)
+     }
+     
+     Latitude <- c(new_matrixc[,1])
+     row_ha1 = rowAnnotation(Latitude = Latitude, 
+                             annotation_legend_param = list(legend_direction = "horizontal", at = c(round(min(Latitude)), round(mean(Latitude))
+                                                                                                    , round(max(Latitude))), 
+                                                            labels = c(round(min(Latitude)), round(mean(Latitude)), round(max(Latitude)))),
+                             col = list(Latitude = colorRamp2(c(round(min(Latitude)), round(mean(Latitude)), round(max(Latitude))), c("cornsilk", "blue",  "orange"))))
+     Longitude <- c(new_matrixc[,2])
+     row_ha2 = rowAnnotation(Longitude = Longitude, 
+                             annotation_legend_param = list(legend_direction = "horizontal", at = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), 
+                                                            labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
+                             col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
+     if(frequency == 7){
+       heatmap.plot22 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+                                  row_order = get_order(o1), 
+                                  name = "Heatmap",  column_dend_reorder = FALSE, 
+                                  cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+                                  row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+                                  bottom_annotation = c(column_ha, column_ha2, column_ha3),
+                                  left_annotation = c(row_ha1, row_ha2),
+                                  col = col_fun, border = TRUE,
+                                  na_col = "gray27", 
+                                  heatmap_legend_param = list(
+                                    legend_direction = "horizontal"
+                                  ))
+     }
+     if(frequency == 12){
+        return(NULL)
+     }
+     
+     if ( input$Depth1 ==1 ){
+       plot(heatmap.plot22)
+     }
+     else{
+       ## MOB tree
+       tree.plot <- ggparty(fit1()) +
+         geom_edge() +
+         coord_flip() +
+         geom_edge_label( size = 6, fontface = "bold", nudge_y =  -0.005,  label.padding = unit(1, "lines"), max_length = 10 ) +
+         geom_node_label(
+           line_list = list(aes(label = splitvar),
+                            aes(label = paste("p =",
+                                              formatC(p.value,
+                                                      format = "f",
+                                                      digits = 2))),
+                            aes(label = "")
+           ),
+           line_gpar = list(list(size = 20),
+                            list(size = 15),
+                            list(size = 2)
+           ),
+           # only inner nodes
+           ids = "inner") +
+         geom_node_info()
+       if(frequency == 7){
+         grob2 = grid.grabExpr(draw(heatmap.plot22, heatmap_legend_side = "bottom",  annotation_legend_side = "bottom")) 
+         grid.newpage()
+         pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
+         grid.draw(grob2)
+         pushViewport(viewport(x = 1.45, y = 0.6, width = 1, height = 0.8))
+         print(tree.plot, newpage = FALSE)
+       }
+       if(frequency == 12){
+          return(NULL)
+       }
+     }
+   })
+   
    ## title line chart
   output$titleline1 = renderText({})
   ## all series plot
@@ -413,7 +687,8 @@ fit1 <- reactive({
     split.pmt <- split(na.omit(df_change()), predict(fit1(), type = "node"))
     split.pmt <- rev(split.pmt)
     new.split.pmt <- list()
-    name1 <- c(length(split.pmt):1)
+    # name1 <- c(length(split.pmt):1)
+    name1 <- c(1:length(split.pmt))
     for(i in 1: length(split.pmt)){
       unique.name <- unique(split.pmt[[i]]$cat.col)
       new.split.pmt[[i]] <- df_change()[df_change()$cat.col %in% unique.name,]
@@ -444,7 +719,7 @@ fit1 <- reactive({
 
     }
     id <- c()
-    name1 <- c(nrow(coef01):1)
+    name1 <- c(1:nrow(coef01))
     for(i in 1: nrow(coef01)){
       id[i] <-  paste0 ("Cluster_", name1[i], collapse = ".")
     }
@@ -505,12 +780,20 @@ fit1 <- reactive({
       form <- paste0(form, var1[i], " + ")
     form <- paste0(form, var1[length(var1)])
     formula <- as.formula(form)
+    
+    ## category columns
+    df1 <- df_change()
+    colsfac <- df1 %>% 
+      select(where(is.character)) %>%
+      select(one_of(var))
+    df1 <- df1 %>% mutate_at(c(colnames(colsfac)), list(~factor(.)))
+    
     ### defining fit function
     linear <- function(y, x, start = NULL, weights = NULL, offset = NULL, ...) {
       glm(y ~ 0 + x, family = gaussian, start = start, ...)
     }
     depth <- input$Depth2
-    MOBtree <- mob( formula, data = df_change(), fit = linear,  na.action = na.exclude, control =
+    MOBtree <- mob( formula, data = df1, fit = linear,  na.action = na.exclude, control =
                       mob_control(prune = input$Prune2,  maxdepth = depth, alpha = 0.01))
 
   })
@@ -525,13 +808,14 @@ fit1 <- reactive({
                  "AIC" = round(AIC(fit2()), digits = 0))
     cbind(c('MSE', 'AIC'), tab)
   }, colnames = FALSE, align = "l")
-  ## title for first MOB-heatmap
   output$titleHeatmap12 = renderText({})
-  ## MOB tree and heatmap plotting
+  ## title for first MOB-heatmap
   output$MOBTree12 <- renderPlot({
     if (is.null(df_change()))
       return(NULL)
     split.pmt <- split(na.omit(df_change()), predict(fit2(), type = "node"))
+    names(split.pmt) <- c(length(split.pmt): 1)
+    split.pmt <- split.pmt[sort(names(split.pmt))]
     new.split.pmt <- list()
     for(i in 1: length(split.pmt)){
       unique.name <- unique(split.pmt[[i]]$cat.col)
@@ -539,7 +823,7 @@ fit1 <- reactive({
       new.split.pmt[[i]]$cluster <-  i
     }
     new_matrixc <- NULL
-    for(i in length(new.split.pmt):1){
+    for(i in 1:length(new.split.pmt)){
       new_matrix <- as.data.frame(t(matrix(new.split.pmt[[i]]$Series.std, nrow = (values$serieslength), ncol = length(unique(new.split.pmt[[i]]$cat.col)))))
       colnames(new_matrix) <- new.split.pmt[[i]][1:(values$serieslength),]$Date
       new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
@@ -548,11 +832,10 @@ fit1 <- reactive({
       new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
       new_matrixc <- bind_rows(new_matrixc, new_matrix)
     }
-    #col_fun = colorRamp2(c(-2, 0, 2), c("darkgreen", "white", "darkred"))
-    col_fun = colorRamp2(c(-2, 0, 2), c(input$colorlow2, "white", input$colorhigh2))
+    col_fun = colorRamp2(c(-2, 0, 2), c(input$colorlow1, "white", input$colorhigh1))
     col_fun(seq(-3, 3))
     
-    ## To option for reordering 1- seriation 2- hclust
+    ## Two option for reordering 1- seriation 2- hclust
     o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
     # heatmap
     frequency <- as.integer(input$Frequency)
@@ -563,17 +846,21 @@ fit1 <- reactive({
                                     col = list(Weekday = c("Monday"="#8DD3C7", "Tuesday"="#FFFFB3", 'Wednesday'="#BEBADA" , 'Thursday'="#FB8072",
                                                            'Friday'="#80B1D3", 'Saturday'="#FDB462", 'Sunday'="#B3DE69" )))
       
-      Month = c(as.character(lubridate::month(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
+      Month = c(as.character(lubridate::month(lubridate::ymd(colnames(new_matrixc[,-c(1:2)])), label = TRUE, abbr = FALSE)))
       column_ha2 = HeatmapAnnotation(Month = Month, 
                                      annotation_legend_param = list(nrow = 2),
                                      col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
                                                           'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
                                                           'September'="#D9D9D9", 'October'="#BC80BD", 'November'="#CCEBC5", 'December'="#FFED6F" )))
+      Year = c(lubridate::year(lubridate::ymd(colnames(new_matrixc[,-c(1:4)]))))
+      column_ha3 = HeatmapAnnotation(Year = Year, 
+                                     annotation_legend_param = list(legend_direction = "horizontal", at = c(min(Year), median(Year), max(Year)), 
+                                                                    labels = c(min(Year), median(Year), max(Year))),
+                                     col = list(Year = colorRamp2(c(min(Year), median(Year), max(Year)), c("cornsilk", "blue",  "orange"))))
     }
     if(frequency == 12){
       Month = c(as.character(lubridate::month(lubridate::ym(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
       column_ha = HeatmapAnnotation(Month = Month, 
-                                    #annotation_legend_param = list(labels = unique(Month), nrow = 2),
                                     annotation_legend_param = list(nrow = 2),
                                     col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
                                                          'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
@@ -597,18 +884,35 @@ fit1 <- reactive({
                                                            labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                             col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
     
-    heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
-                            row_order = get_order(o1), 
-                            name = "Heatmap",  column_dend_reorder = FALSE, 
-                            cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
-                            row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
-                            bottom_annotation = c(column_ha, column_ha2),
-                            left_annotation = c(row_ha1, row_ha2),
-                            col = col_fun, border = TRUE,
-                            na_col = "gray27", 
-                            heatmap_legend_param = list(
-                              legend_direction = "horizontal"
-                            ))
+    if(frequency == 7){
+      heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]), 
+                              row_order = get_order(o1), 
+                              name = "Heatmap",  column_dend_reorder = FALSE, 
+                              cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+                              row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+                              bottom_annotation = c(column_ha, column_ha2, column_ha3),
+                              left_annotation = c(row_ha1, row_ha2),
+                              col = col_fun, border = TRUE,
+                              na_col = "gray27", 
+                              heatmap_legend_param = list(
+                                legend_direction = "horizontal"
+                              ))
+    }
+    
+    if(frequency == 12){
+      heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]), 
+                              row_order = get_order(o1), 
+                              name = "Heatmap",  column_dend_reorder = FALSE, 
+                              cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+                              row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+                              bottom_annotation = c(column_ha, column_ha2),
+                              left_annotation = c(row_ha1, row_ha2),
+                              col = col_fun, border = TRUE,
+                              na_col = "gray27", 
+                              heatmap_legend_param = list(
+                                legend_direction = "horizontal"
+                              ))
+    }
     
     if ( input$Depth1 ==1 ){
       plot(heatmap.plot)
@@ -639,17 +943,18 @@ fit1 <- reactive({
       grid.newpage()
       pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
       grid.draw(grob)
-      pushViewport(viewport(x = 1.45, y = 0.5, width = 1, height = 0.8))
+      pushViewport(viewport(x = 1.45, y = 0.6, width = 1, height = 0.8))
       print(tree.plot, newpage = FALSE)
     }
   } )
-  ## title for the second MOB-heatmap
   output$titleHeatmap22 = renderText({})
   ## heatmap by day of week
   output$MOBTree22 <- renderPlot({
     if (is.null(df_change()))
       return(NULL)
     split.pmt <- split(na.omit(df_change()), predict(fit2(), type = "node"))
+    names(split.pmt) <- c(length(split.pmt): 1)
+    split.pmt <- split.pmt[sort(names(split.pmt))]
     new.split.pmt <- list()
     for(i in 1: length(split.pmt)){
       unique.name <- unique(split.pmt[[i]]$cat.col)
@@ -657,59 +962,102 @@ fit1 <- reactive({
       new.split.pmt[[i]]$cluster <-  i
     }
     frequency <- as.integer(input$Frequency)
-    order.times <- function(df){
-      if(frequency == 7){
+    if(frequency == 7){
+      order.times <- order.times <- function(df){
         test <- df %>%
-          mutate('date' = lubridate::ymd(Date))%>%
-          mutate('times' = weekdays(date)) %>%
+          mutate('date' = lubridate::ymd(as.Date(Date)))%>%
+          mutate('times' = months(date)) %>%
+          mutate('times2' = weekdays(date)) %>%
           group_by(cat.col) %>%
-          arrange(factor(times, levels = DescTools::day.name))
+          arrange(factor(times, levels = month.name)) 
+        test3 <- df %>%
+          mutate('date' = lubridate::ymd(as.Date(Date)))%>%
+          mutate('times' = months(date)) %>%
+          mutate('times2' = weekdays(date)) %>%
+          group_by(cat.col) %>%
+          arrange(factor(times2, levels = DescTools::day.name))
+        test1 <- test %>%
+          arrange(cat.col)
+        
+        split1 <- split(test1, test1$cat.col, drop = TRUE) 
+        
+        for(i in 1:length(split1)){
+          split1[[i]] <- split1[[i]] %>%
+            mutate('times2' = make.unique(times, sep = '_'))
+        }
+        
+        test11 <- test3 %>%
+          arrange(cat.col)
+        
+        split11 <- split(test11, test1$cat.col, drop = TRUE) 
+        
+        for(i in 1:length(split11)){
+          split11[[i]] <- split11[[i]] %>%
+            mutate('times' = make.unique(times, sep = '_'))
+        }
+        
+        test2 <- do.call(rbind.data.frame, split1)
+        test22 <- do.call(rbind.data.frame, split11)
+        return(list(test22, test2))
+      }
+      ordar.times.pmt <- lapply(new.split.pmt, order.times)
+      
+      new_matrixc <- NULL
+      for(i in 1:length(ordar.times.pmt)){
+        new_matrix <- as.data.frame(t(matrix(ordar.times.pmt[[i]][[1]]$Series.std, nrow = (values$serieslength), ncol = length(unique(ordar.times.pmt[[i]][[1]]$cat.col)))))
+        colnames(new_matrix) <- ordar.times.pmt[[i]][[1]][1:(values$serieslength),]$Date
+        new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
+        new_matrix <- cbind.data.frame('ID' = paste0('C', i, sep = ''), new_matrix)
+        new_matrix <- cbind.data.frame('latitude' = unique(new.split.pmt[[i]]$latitude), new_matrix)
+        new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
+        new_matrixc <- bind_rows(new_matrixc, new_matrix)
       }
       
-      if(frequency == 12){
+    }
+    if(frequency == 12){
+      order.times <- order.times <- function(df){
         test <- df %>%
           mutate('date' = lubridate::ym(Date))%>%
           mutate('times' = months(date)) %>%
           group_by(cat.col) %>%
           arrange(factor(times, levels = month.name)) 
+        test1 <- test %>%
+          arrange(cat.col)
+        
+        split1 <- split(test1, test1$cat.col, drop = TRUE) 
+        
+        for(i in 1:length(split1)){
+          split1[[i]] <- split1[[i]] %>%
+            mutate('times2' = make.unique(times, sep = '_'))
+        }
+        
+        test2 <- do.call(rbind.data.frame, split1)
+        return(test2)
       }
+      ordar.times.pmt <- lapply(new.split.pmt, order.times)
       
-      
-      test1 <- test %>%
-        arrange(cat.col)
-      
-      split1 <- split(test1, test1$cat.col, drop = TRUE) 
-      
-      for(i in 1:length(split1)){
-        split1[[i]] <- split1[[i]] %>%
-          mutate('times2' = make.unique(times, sep = '_'))
+      new_matrixc <- NULL
+      for(i in 1:length(ordar.times.pmt)){
+        new_matrix <- as.data.frame(t(matrix(ordar.times.pmt[[i]]$Series.std, nrow = (values$serieslength), ncol = length(unique(ordar.times.pmt[[i]]$cat.col)))))
+        colnames(new_matrix) <- ordar.times.pmt[[i]][1:(values$serieslength),]$Date
+        new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
+        new_matrix <- cbind.data.frame('ID' = paste0('C', i, sep = ''), new_matrix)
+        new_matrix <- cbind.data.frame('latitude' = unique(new.split.pmt[[i]]$latitude), new_matrix)
+        new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
+        new_matrixc <- bind_rows(new_matrixc, new_matrix)
       }
-      
-      test2 <- do.call(rbind.data.frame, split1)
-      return(test2)
     }
     
-    ordar.times.pmt <- lapply(new.split.pmt, order.times)
     
-    new_matrixc <- NULL
-    for(i in length(ordar.times.pmt): 1){
-      new_matrix <- as.data.frame(t(matrix(ordar.times.pmt[[i]]$Series.std, nrow = (values$serieslength), ncol = length(unique(ordar.times.pmt[[i]]$cat.col)))))
-      colnames(new_matrix) <- ordar.times.pmt[[i]][1:(values$serieslength),]$Date
-      new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
-      new_matrix <- cbind.data.frame('ID' = paste0('C', i, sep = ''), new_matrix)
-      new_matrix <- cbind.data.frame('latitude' = unique(new.split.pmt[[i]]$latitude), new_matrix)
-      new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
-      new_matrixc <- bind_rows(new_matrixc, new_matrix)
-    }
     
-    #col_fun = colorRamp2(c(-2, 0, 2), c("darkgreen", "white", "darkred"))
-    col_fun = colorRamp2(c(-2, 0, 2), c(input$colorlow2, "white", input$colorhigh2))
+    col_fun = colorRamp2(c(-2, 0, 2), c(input$colorlow1, "white", input$colorhigh1))
     col_fun(seq(-3, 3))
     
-    ## To option for reordering 1- seriation 2- hclust
-    o1 = seriation::seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
-    frequency <- as.integer(input$Frequency) 
-    if(frequency==7){
+    ## Two option for reordering 1- seriation 2- hclust
+    
+    frequency <- as.integer(input$Frequency)
+    if(frequency == 7){
+      o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
       Weekday = c(as.character(weekdays(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])))))
       column_ha = HeatmapAnnotation(Weekday = Weekday, 
                                     annotation_legend_param = list(nrow = 2),
@@ -722,24 +1070,29 @@ fit1 <- reactive({
                                      col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
                                                           'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
                                                           'September'="#D9D9D9", 'October'="#BC80BD", 'November'="#CCEBC5", 'December'="#FFED6F" )))
+      Year = c(lubridate::year(lubridate::ymd(colnames(new_matrixc[,-c(1:4)]))))
+      column_ha3 = HeatmapAnnotation(Year = Year, 
+                                     annotation_legend_param = list(legend_direction = "horizontal", at = c(min(Year), median(Year), max(Year)), 
+                                                                    labels = c(min(Year), median(Year), max(Year))),
+                                     col = list(Year = colorRamp2(c(min(Year), median(Year), max(Year)), c("cornsilk", "blue",  "orange"))))
+    }
+    if(frequency == 12){
+      o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
+      ## Annotations
+      Month = c(as.character(lubridate::month(lubridate::ym(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
+      column_ha = HeatmapAnnotation(Month = Month, 
+                                    annotation_legend_param = list(nrow = 2),
+                                    col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
+                                                         'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
+                                                         'September'="#D9D9D9", 'October'="#BC80BD", 'November'="#CCEBC5", 'December'="#FFED6F" )))
+      
+      Year = c(lubridate::year(lubridate::ym(colnames(new_matrixc[,-c(1:4)]))))
+      column_ha2 = HeatmapAnnotation(Year = Year, 
+                                     annotation_legend_param = list(legend_direction = "horizontal", at = c(min(Year), median(Year), max(Year)), 
+                                                                    labels = c(min(Year), median(Year), max(Year))),
+                                     col = list(Year = colorRamp2(c(min(Year), median(Year), max(Year)), c("cornsilk", "blue",  "orange"))))
     }
     
-    if(frequency==12){
-   ## Annotations
-    Month = c(as.character(lubridate::month(lubridate::ym(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
-    column_ha = HeatmapAnnotation(Month = Month, 
-                                  #annotation_legend_param = list(labels = unique(Month), nrow = 2),
-                                  annotation_legend_param = list(nrow = 2),
-                                  col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
-                                                       'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
-                                                       'September'="#D9D9D9", 'October'="#BC80BD", 'November'="#CCEBC5", 'December'="#FFED6F" )))
-    
-    Year = c(lubridate::year(lubridate::ym(colnames(new_matrixc[,-c(1:4)]))))
-    column_ha2 = HeatmapAnnotation(Year = Year, 
-                                   annotation_legend_param = list(legend_direction = "horizontal", at = c(min(Year), median(Year), max(Year)), 
-                                                                  labels = c(min(Year), median(Year), max(Year))),
-                                   col = list(Year = colorRamp2(c(min(Year), median(Year), max(Year)), c("cornsilk", "blue",  "orange"))))
-    }
     Latitude <- c(new_matrixc[,1])
     row_ha1 = rowAnnotation(Latitude = Latitude, 
                             annotation_legend_param = list(legend_direction = "horizontal", at = c(round(min(Latitude)), round(mean(Latitude))
@@ -751,19 +1104,35 @@ fit1 <- reactive({
                             annotation_legend_param = list(legend_direction = "horizontal", at = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), 
                                                            labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                             col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
+    if(frequency == 7){
+      heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+                                 row_order = get_order(o1), 
+                                 name = "Heatmap",  column_dend_reorder = FALSE, 
+                                 cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+                                 row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+                                 bottom_annotation = c(column_ha, column_ha2, column_ha3),
+                                 left_annotation = c(row_ha1, row_ha2),
+                                 col = col_fun, border = TRUE,
+                                 na_col = "gray27", 
+                                 heatmap_legend_param = list(
+                                   legend_direction = "horizontal"
+                                 ))
+    }
+    if(frequency == 12){
+      heatmap.plot2 <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+                               row_order = get_order(o1), 
+                               name = "Heatmap",  column_dend_reorder = FALSE, 
+                               cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+                               row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+                               bottom_annotation = c(column_ha, column_ha2),
+                               left_annotation = c(row_ha1, row_ha2),
+                               col = col_fun, border = TRUE,
+                               na_col = "gray27", 
+                               heatmap_legend_param = list(
+                                 legend_direction = "horizontal"
+                               ))
+    }
     
-    heatmap.plot2 <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
-                             row_order = get_order(o1), 
-                             name = "Heatmap",  column_dend_reorder = FALSE, 
-                             cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
-                             row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
-                             bottom_annotation = c(column_ha, column_ha2),
-                             left_annotation = c(row_ha1, row_ha2),
-                             col = col_fun, border = TRUE,
-                             na_col = "gray27", 
-                             heatmap_legend_param = list(
-                               legend_direction = "horizontal"
-                             ))
     if ( input$Depth1 ==1 ){
       plot(heatmap.plot2)
     }
@@ -788,14 +1157,191 @@ fit1 <- reactive({
           # only inner nodes
           ids = "inner") +
         geom_node_info()
-      # printing both plots
-      grob = grid.grabExpr(draw(heatmap.plot2, heatmap_legend_side = "bottom",  annotation_legend_side = "bottom")) 
+      if(frequency == 7){
+        # printing both plots
+        grob1 = grid.grabExpr(draw(heatmap.plot2, heatmap_legend_side = "bottom",  annotation_legend_side = "bottom")) 
+        grid.newpage()
+        pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
+        grid.draw(grob1)
+        pushViewport(viewport(x = 1.45, y = 0.6, width = 1, height = 0.8))
+        print(tree.plot, newpage = FALSE)
+      }
+      if(frequency == 12){
+        # printing both plots
+        grob = grid.grabExpr(draw(heatmap.plot2, heatmap_legend_side = "bottom",  annotation_legend_side = "bottom")) 
+        grid.newpage()
+        pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
+        grid.draw(grob)
+        pushViewport(viewport(x = 1.45, y = 0.6, width = 1, height = 0.8))
+        print(tree.plot, newpage = FALSE)
+      }
+    }
+  })
+  
+  output$titleHeatmap223 = renderText({})
+  ## heatmap by day of week
+  output$MOBTree223 <- renderPlot({
+    if (is.null(df_change()))
+      return(NULL)
+    split.pmt <- split(na.omit(df_change()), predict(fit2(), type = "node"))
+    names(split.pmt) <- c(length(split.pmt): 1)
+    split.pmt <- split.pmt[sort(names(split.pmt))]
+    new.split.pmt <- list()
+    for(i in 1: length(split.pmt)){
+      unique.name <- unique(split.pmt[[i]]$cat.col)
+      new.split.pmt[[i]] <- df_change()[df_change()$cat.col %in% unique.name,]
+      new.split.pmt[[i]]$cluster <-  i
+    }
+    frequency <- as.integer(input$Frequency)
+    if(frequency == 7){
+      order.times <- order.times <- function(df){
+        test <- df %>%
+          mutate('date' = lubridate::ymd(as.Date(Date)))%>%
+          mutate('times' = months(date)) %>%
+          mutate('times2' = weekdays(date)) %>%
+          group_by(cat.col) %>%
+          arrange(factor(times, levels = month.name)) 
+        test3 <- df %>%
+          mutate('date' = lubridate::ymd(as.Date(Date)))%>%
+          mutate('times' = months(date)) %>%
+          mutate('times2' = weekdays(date)) %>%
+          group_by(cat.col) %>%
+          arrange(factor(times2, levels = DescTools::day.name))
+        test1 <- test %>%
+          arrange(cat.col)
+        
+        split1 <- split(test1, test1$cat.col, drop = TRUE) 
+        
+        for(i in 1:length(split1)){
+          split1[[i]] <- split1[[i]] %>%
+            mutate('times2' = make.unique(times, sep = '_'))
+        }
+        
+        test11 <- test3 %>%
+          arrange(cat.col)
+        
+        split11 <- split(test11, test1$cat.col, drop = TRUE) 
+        
+        for(i in 1:length(split11)){
+          split11[[i]] <- split11[[i]] %>%
+            mutate('times' = make.unique(times, sep = '_'))
+        }
+        
+        test2 <- do.call(rbind.data.frame, split1)
+        test22 <- do.call(rbind.data.frame, split11)
+        return(list(test22, test2))
+      }
+      ordar.times.pmt <- lapply(new.split.pmt, order.times)
       
-      grid.newpage()
-      pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
-      grid.draw(grob)
-      pushViewport(viewport(x = 1.45, y = 0.5, width = 1, height = 0.8))
-      print(tree.plot, newpage = FALSE)
+      new_matrixc <- NULL
+      for(i in 1:length(ordar.times.pmt)){
+        new_matrix <- as.data.frame(t(matrix(ordar.times.pmt[[i]][[2]]$Series.std, nrow = (values$serieslength), ncol = length(unique(ordar.times.pmt[[i]][[2]]$cat.col)))))
+        colnames(new_matrix) <- ordar.times.pmt[[i]][[2]][1:(values$serieslength),]$Date
+        new_matrix <- cbind.data.frame('#Series' = paste0('S', nrow(new_matrix), sep = ''), new_matrix)
+        new_matrix <- cbind.data.frame('ID' = paste0('C', i, sep = ''), new_matrix)
+        new_matrix <- cbind.data.frame('latitude' = unique(new.split.pmt[[i]]$latitude), new_matrix)
+        new_matrix <- cbind.data.frame('longitude' = unique(new.split.pmt[[i]]$longitude), new_matrix)
+        new_matrixc <- bind_rows(new_matrixc, new_matrix)
+      }
+    }
+    if(frequency == 12){
+      return(NULL)
+    }
+    
+    col_fun = colorRamp2(c(-2, 0, 2), c(input$colorlow1, "white", input$colorhigh1))
+    col_fun(seq(-3, 3))
+    
+    ## Two option for reordering 1- seriation 2- hclust
+    
+    frequency <- as.integer(input$Frequency)
+    if(frequency == 7){
+      o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
+      Weekday = c(as.character(weekdays(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])))))
+      column_ha = HeatmapAnnotation(Weekday = Weekday, 
+                                    annotation_legend_param = list(nrow = 2),
+                                    col = list(Weekday = c("Monday"="#8DD3C7", "Tuesday"="#FFFFB3", 'Wednesday'="#BEBADA" , 'Thursday'="#FB8072",
+                                                           'Friday'="#80B1D3", 'Saturday'="#FDB462", 'Sunday'="#B3DE69" )))
+      
+      Month = c(as.character(lubridate::month(lubridate::ymd(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
+      column_ha2 = HeatmapAnnotation(Month = Month, 
+                                     annotation_legend_param = list(nrow = 2),
+                                     col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
+                                                          'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
+                                                          'September'="#D9D9D9", 'October'="#BC80BD", 'November'="#CCEBC5", 'December'="#FFED6F" )))
+      Year = c(lubridate::year(lubridate::ymd(colnames(new_matrixc[,-c(1:4)]))))
+      column_ha3 = HeatmapAnnotation(Year = Year, 
+                                     annotation_legend_param = list(legend_direction = "horizontal", at = c(min(Year), median(Year), max(Year)), 
+                                                                    labels = c(min(Year), median(Year), max(Year))),
+                                     col = list(Year = colorRamp2(c(min(Year), median(Year), max(Year)), c("cornsilk", "blue",  "orange"))))
+    }
+    if(frequency == 12){
+      return(NULL)
+    }
+    
+    Latitude <- c(new_matrixc[,1])
+    row_ha1 = rowAnnotation(Latitude = Latitude, 
+                            annotation_legend_param = list(legend_direction = "horizontal", at = c(round(min(Latitude)), round(mean(Latitude))
+                                                                                                   , round(max(Latitude))), 
+                                                           labels = c(round(min(Latitude)), round(mean(Latitude)), round(max(Latitude)))),
+                            col = list(Latitude = colorRamp2(c(round(min(Latitude)), round(mean(Latitude)), round(max(Latitude))), c("cornsilk", "blue",  "orange"))))
+    Longitude <- c(new_matrixc[,2])
+    row_ha2 = rowAnnotation(Longitude = Longitude, 
+                            annotation_legend_param = list(legend_direction = "horizontal", at = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), 
+                                                           labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
+                            col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
+    if(frequency == 7){
+      heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+                                 row_order = get_order(o1), 
+                                 name = "Heatmap",  column_dend_reorder = FALSE, 
+                                 cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
+                                 row_title_gp = gpar(fill = c("#B3DE69"),col = c("black"), font = 2), 
+                                 bottom_annotation = c(column_ha, column_ha2, column_ha3),
+                                 left_annotation = c(row_ha1, row_ha2),
+                                 col = col_fun, border = TRUE,
+                                 na_col = "gray27", 
+                                 heatmap_legend_param = list(
+                                   legend_direction = "horizontal"
+                                 ))
+    }
+    if(frequency == 12){
+      return(NULL)
+    }
+    
+    if ( input$Depth1 ==1 ){
+      plot(heatmap.plot2)
+    }
+    else{
+      ## MOB tree
+      tree.plot <- ggparty(fit2()) +
+        geom_edge() +
+        coord_flip() +
+        geom_edge_label( size = 6, fontface = "bold", nudge_y =  -0.005,  label.padding = unit(1, "lines"), max_length = 10 ) +
+        geom_node_label(
+          line_list = list(aes(label = splitvar),
+                           aes(label = paste("p =",
+                                             formatC(p.value,
+                                                     format = "f",
+                                                     digits = 2))),
+                           aes(label = "")
+          ),
+          line_gpar = list(list(size = 20),
+                           list(size = 15),
+                           list(size = 2)
+          ),
+          # only inner nodes
+          ids = "inner") +
+        geom_node_info()
+      if(frequency == 7){
+        grob2 = grid.grabExpr(draw(heatmap.plot2, heatmap_legend_side = "bottom",  annotation_legend_side = "bottom")) 
+        grid.newpage()
+        pushViewport(viewport(x = 0.25, y = 0.5, width = 0.5, height = 0.9))
+        grid.draw(grob2)
+        pushViewport(viewport(x = 1.45, y = 0.6, width = 1, height = 0.8))
+        print(tree.plot, newpage = FALSE)
+      }
+      if(frequency == 12){
+        return(NULL)
+      }
     }
   })
 #   
@@ -808,7 +1354,7 @@ fit1 <- reactive({
     split.pmt <- split(na.omit(df_change()), predict(fit2(), type = "node"))
     split.pmt <- rev(split.pmt)
     new.split.pmt <- list()
-    name1 <- c(length(split.pmt):1)
+    name1 <- c(1:length(split.pmt))
     for(i in 1: length(split.pmt)){
       unique.name <- unique(split.pmt[[i]]$cat.col)
       new.split.pmt[[i]] <- df_change()[df_change()$cat.col %in% unique.name,]
@@ -839,7 +1385,7 @@ fit1 <- reactive({
 
     }
     id <- c()
-    name1 <- c(nrow(coef01):1)
+    name1 <- c(1:nrow(coef01))
     for(i in 1: nrow(coef01)){
       id[i] <-  paste0 ("Cluster_", name1[i], collapse = ".")
     }
