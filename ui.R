@@ -2,11 +2,9 @@ library(shiny)
 library(shinyscreenshot)
 library(shinydashboard)
 library(shinythemes)
-## themes available
-## cerulean, cosmo, cyborg, darkly, flatly, journal, lumen, paper, readable, sandstone, 
-##simplex, slate, spacelab, superhero, united, yeti
+
 # Define UI 
-shinyUI(fluidPage(#theme = shinytheme("cosmo"),
+shinyUI(fluidPage(
     # title
     titlePanel("Model-Based Time Series Clustering Tool"),
        sidebarPanel(
@@ -17,7 +15,7 @@ shinyUI(fluidPage(#theme = shinytheme("cosmo"),
                      '.csv'
                    )),
          radioButtons(inputId="Frequency", label="Frequency", 
-                      choices=c("Weekly" = 7, "Monthly" = 12), selected=list("12")),
+                      choices=c("Weekly" = 7, "Monthly" = 12), selected=list("7")),
                     fluidRow( 
                      h4("First Set"),
            selectInput("Depth1", label="MOB depth", choices=list("1-no"= "1","2" = "2", "3" = "3", "4" = "4", 
@@ -55,9 +53,12 @@ shinyUI(fluidPage(#theme = shinytheme("cosmo"),
                  tabPanel(h3("MOB - Heatmaps"), title = uiOutput("titleHeatmap11")),
                  tabPanel("MOB - Heatmaps1", plotOutput("MOBTree11" , width = 2000, height = 800
                                                        )),
-                 tabPanel(h3("MOB - Heatmaps (month.of.year)"), title = uiOutput("titleHeatmap21")),
-                 tabPanel("MOB - Heatmaps (month.of.year)1", plotOutput("MOBTree21", width = 2000, height = 800
+                 tabPanel(h3("MOB - Heatmaps (day.of.week)"), title = uiOutput("titleHeatmap21")),
+                 tabPanel("MOB - Heatmaps (day.of.week)1", plotOutput("MOBTree21", width = 2000, height = 800
                                                                        )),
+                 tabPanel(h3("MOB - Heatmaps (month.of.year)"), title = uiOutput("titleHeatmap222")),
+                 tabPanel("MOB - Heatmaps (month.of.year)1", plotOutput("MOBTree222", width = 2000, height = 800
+                 )),
                  tabPanel(h3("Series with average line"), title = uiOutput("titleline1")),
                  tabPanel("Series with average line1", plotOutput("ClusterSeries1")),
                  tabPanel(h3("Coefficient plot"), title = uiOutput("titlecoefficient1")),
@@ -69,9 +70,12 @@ shinyUI(fluidPage(#theme = shinytheme("cosmo"),
                  tabPanel(h3("MOB - Heatmaps"), title = uiOutput("titleHeatmap12")),
                  tabPanel("MOB - Heatmaps2", plotOutput("MOBTree12", width = 2000, height = 800
                                                        )),
-                 tabPanel(h3("MOB - Heatmaps (month.of.year)"), title = uiOutput("titleHeatmap22")),
-                 tabPanel("MOB - Heatmaps (month.of.year)2", plotOutput("MOBTree22", width = 2000, height = 800
+                 tabPanel(h3("MOB - Heatmaps (day.of.week)"), title = uiOutput("titleHeatmap22")),
+                 tabPanel("MOB - Heatmaps (day.of.week)2", plotOutput("MOBTree22", width = 2000, height = 800
                                                                        )),
+                 tabPanel(h3("MOB - Heatmaps (month.of.year)"), title = uiOutput("titleHeatmap223")),
+                 tabPanel("MOB - Heatmaps (month.of.year)2", plotOutput("MOBTree223", width = 2000, height = 800
+                 )),
                  tabPanel(h3("Series with average line"), title = uiOutput("titleline2")),
                  tabPanel("Series with average line2", plotOutput("ClusterSeries2")),
                  tabPanel(h3("Coefficient plot"), title = uiOutput("titlecoefficient2")),
