@@ -15,8 +15,7 @@ library(tidyverse)
 library(circlize)
 library(seriation)
 library(devtools)
-#install.packages("http://cran.rstudio.com/src/contrib/Archive/rjson/rjson_0.2.13.tar.gz", repos=NULL, type="source")
-#devtools::install_github("jokergoo/ComplexHeatmap")
+devtools::install_github("jokergoo/ComplexHeatmap")
 library(ComplexHeatmap)
 options(shiny.maxRequestSize=30*1024^2) 
 # Define server logic 
@@ -192,7 +191,6 @@ fit1 <- reactive({
     if(frequency == 12){
       Month = c(as.character(lubridate::month(lubridate::ym(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
       column_ha = HeatmapAnnotation(Month = Month, 
-                                    #annotation_legend_param = list(labels = unique(Month), nrow = 2),
                                     annotation_legend_param = list(nrow = 2),
                                     col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
                                                          'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
@@ -216,7 +214,7 @@ fit1 <- reactive({
                                                            labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                             col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
     if(frequency == 7){
-      heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+      heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  
                               row_order = get_order(o1), 
                               name = "Heatmap",  column_dend_reorder = FALSE, 
                               cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
@@ -230,7 +228,7 @@ fit1 <- reactive({
                               ))
     }
     if(frequency == 12){
-      heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+      heatmap.plot <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  
                               row_order = get_order(o1), 
                               name = "Heatmap",  column_dend_reorder = FALSE, 
                               cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
@@ -412,8 +410,7 @@ fit1 <- reactive({
        o1 = seriation:: seriate(dist(as.matrix(new_matrixc[,-c(1:4)])), method = "HC")
      ## Annotations
      Month = c(as.character(lubridate::month(lubridate::ym(colnames(new_matrixc[,-c(1:4)])), label = TRUE, abbr = FALSE)))
-     column_ha = HeatmapAnnotation(Month = Month, 
-                                   #annotation_legend_param = list(labels = unique(Month), nrow = 2),
+     column_ha = HeatmapAnnotation(Month = Month,
                                    annotation_legend_param = list(nrow = 2),
                                    col = list(Month = c("January"="#8DD3C7", "February"="#FFFFB3", 'March'="#BEBADA" , 'April'="#FB8072",
                                                         'May'="#80B1D3", 'June'="#FDB462", 'July'="#B3DE69", 'August'="#FCCDE5",
@@ -438,7 +435,7 @@ fit1 <- reactive({
                                                             labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                              col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
      if(frequency == 7){
-       heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+       heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  
                row_order = get_order(o1), 
                name = "Heatmap",  column_dend_reorder = FALSE, 
                cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
@@ -452,7 +449,7 @@ fit1 <- reactive({
                ))
      }
      if(frequency == 12){
-     heatmap.plot2 <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+     heatmap.plot2 <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  
                               row_order = get_order(o1), 
                               name = "Heatmap",  column_dend_reorder = FALSE, 
                               cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
@@ -623,7 +620,7 @@ fit1 <- reactive({
                                                             labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                              col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
      if(frequency == 7){
-       heatmap.plot22 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+       heatmap.plot22 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  
                                   row_order = get_order(o1), 
                                   name = "Heatmap",  column_dend_reorder = FALSE, 
                                   cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
@@ -1105,7 +1102,7 @@ fit1 <- reactive({
                                                            labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                             col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
     if(frequency == 7){
-      heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+      heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  
                                  row_order = get_order(o1), 
                                  name = "Heatmap",  column_dend_reorder = FALSE, 
                                  cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
@@ -1119,7 +1116,7 @@ fit1 <- reactive({
                                  ))
     }
     if(frequency == 12){
-      heatmap.plot2 <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+      heatmap.plot2 <- Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  
                                row_order = get_order(o1), 
                                name = "Heatmap",  column_dend_reorder = FALSE, 
                                cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
@@ -1290,7 +1287,7 @@ fit1 <- reactive({
                                                            labels = c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude)))),
                             col = list(Longitude = colorRamp2(c(round(min(Longitude)), round(mean(Longitude)), round(max(Longitude))), c("cornsilk", "blue",  "orange"))))
     if(frequency == 7){
-      heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  #row_dend_reorder = FALSE,
+      heatmap.plot2 <-  Heatmap(as.matrix(new_matrixc[,-c(1:4)]),  
                                  row_order = get_order(o1), 
                                  name = "Heatmap",  column_dend_reorder = FALSE, 
                                  cluster_columns = FALSE, cluster_rows = FALSE, show_column_names = FALSE, row_split = new_matrixc[, c(3:4)], 
