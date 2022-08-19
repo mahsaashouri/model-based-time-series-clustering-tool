@@ -16,7 +16,7 @@ library(circlize)
 library(seriation)
 library(devtools)
 #install.packages("http://cran.rstudio.com/src/contrib/Archive/rjson/rjson_0.2.13.tar.gz", repos=NULL, type="source")
-devtools::install_github("jokergoo/ComplexHeatmap")
+#devtools::install_github("jokergoo/ComplexHeatmap")
 library(ComplexHeatmap)
 options(shiny.maxRequestSize=30*1024^2) 
 # Define server logic 
