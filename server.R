@@ -1,4 +1,5 @@
-
+## To Run the app both 'server.R' and 'ui.R' should be in the same folder. While running the app open both R files and then 
+## upload the 'Taiwan-PM2.5-Daily.2015-2019.csv' file. 
 library(shiny)
 library(partykit)
 library(ggplot2)
@@ -15,7 +16,8 @@ library(tidyverse)
 library(circlize)
 library(seriation)
 library(devtools)
-devtools::install_github("jokergoo/ComplexHeatmap")
+library(DescTools) # while you install this package choose 'no' for this Q 'Do you want to install from sources the package which needs compilation?'
+#devtools::install_github("jokergoo/ComplexHeatmap")
 library(ComplexHeatmap)
 options(shiny.maxRequestSize=30*1024^2) 
 # Define server logic 
