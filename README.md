@@ -5,7 +5,7 @@ Examining PM2.5 (atmospheric particulate matter with a maximum diameter of 2.5 m
 
 
 Users can upload the dataset they wish to explore using the 'Browse' button. This dataset should include the specific columns 'Series' (all the time series), 
-'Date', 'cat.col' (column which categorizes the series) names, and 'latitude' and 'longitude' (the area of the colelcted series). 
+'Date,' 'cat.col' (column which categorizes the series) names, and 'latitude' and 'longitude' (the area of the collected series). 
 It also needs to include other columns as splitting variables (domain-relevant attributes) 
 with desired names. 
 The frequency option helps the user choose the time series frequency that is currently 'Weekly' (for daily time series) or 'Monthly' 
@@ -14,8 +14,8 @@ The frequency option helps the user choose the time series frequency that is cur
 Our example dataset is monthly ```PM2.5-Taiwan.csv```, which shows the daily Taiwan PM2.5 index in different regions and counties from Jan 2006 to Nov 2019. 
 Domain-relevant attributes applied to this dataset include TEPA zones (Taiwan air quality zones) (10 categories), station type (6 categories), metro (2 categories), population (numeric), and  administrative level (3 categories). 
 
-For the purpose of comparing two sets of parameter settings, our tool creates two sets of results, presented in two tabs.
-The app screenshot using MOB depth = 3 and 2, Prune option = 'AIC' with all the above domain-relevant attributes as splitting variables:
+For the purpose of comparing two sets of parameter settings, our tool creates two sets of results presented in two tabs.
+The app screenshot using MOB depth = 3, Prune option = 'AIC' with all the above domain-relevant attributes as splitting variables:
 
 ![alt text](<https://github.com/mahsaashouri/model-based-time-series-clustering-tool/blob/main/screenshot.png>)
 
